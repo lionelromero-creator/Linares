@@ -1,40 +1,32 @@
 /*
 ===========================================================
- CONTROL DE ROBOT POR BLUETOOTH - ESP32
+ CONTROL DEL ROBOT CON MANDO TIPO PLAYSTATION 4
 ===========================================================
 
-COMANDOS RECIBIDOS POR BLUETOOTH:
+MOVIMIENTO:
+    ↑ D-PAD       = U = Adelante
+    ↓ D-PAD       = D = Atrás
+    ← D-PAD       = L = Izquierda
+    → D-PAD       = R = Derecha
 
-Movimiento:
-    U = Adelante (UP)
-    D = Atrás (DOWN)
-    L = Izquierda (LEFT)
-    R = Derecha (RIGHT)
-    S = Detener motores (STOP)
+GIROS:
+    □ CUADRADO    = H = Giro circular izquierda
+    ○ CÍRCULO     = G = Giro circular derecha
 
-Giros:
-    H = Giro circular hacia la izquierda
-    G = Giro circular hacia la derecha
+DETENER:
+    ✕ X            = S = Detener motores
 
-CONTROL DE VELOCIDAD PWM:
-    P = 120
-    A = 180
-    B = 200
-    Y = 230
-    O = 254
+CONTROL DE VELOCIDAD:
+    L1             = P = PWM 120
+    L2             = A = PWM 180
+    R1             = B = PWM 200
+    R2             = Y = PWM 230
+    △ TRIÁNGULO    = O = PWM 254
 
-Al encender el robot:
-    PWM inicial = 120
-
-El ESP32 recibe los caracteres mediante Bluetooth
-y ejecuta una acción dependiendo del carácter recibido.
+El ESP32 recibe estos caracteres mediante Bluetooth
+desde la aplicación de control.
 ===========================================================
 */
-
-
-// =========================================================
-// 1. LIBRERÍA BLUETOOTH
-// =========================================================
 
 #include "BluetoothSerial.h"
 
