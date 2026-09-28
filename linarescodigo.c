@@ -3,25 +3,30 @@
  CONTROL DEL ROBOT CON MANDO TIPO PLAYSTATION 4
 ===========================================================
 
-MOVIMIENTO:
-    ↑ D-PAD       = U = Adelante
-    ↓ D-PAD       = D = Atrás
-    ← D-PAD       = L = Izquierda
-    → D-PAD       = R = Derecha
+Modos
+triangulo: cambia de modos
 
-GIROS:
-    □ CUADRADO    = H = Giro circular izquierda
-    ○ CÍRCULO     = G = Giro circular derecha
+modo 1:
+    JOYSTICK
 
-DETENER:
-    ✕ X            = S = Detener motores
+    L3 (Joystick izquierdo) = Control de movimiento/velocidad mediante el joystick
 
-CONTROL DE VELOCIDAD:
-    L1             = P = PWM 120
-    L2             = A = PWM 180
-    R1             = B = PWM 200
-    R2             = Y = PWM 230
-    △ TRIÁNGULO    = O = PWM 254
+    CONTROL DE VELOCIDAD:
+        L2             = A = PWM -150
+        R2             = Y = PWM 150
+        ○ CÍRCULO   = O = PWM 254
+
+
+
+
+modo 2:
+
+
+
+
+
+
+
 
 El ESP32 recibe estos caracteres mediante Bluetooth
 desde la aplicación de control.
