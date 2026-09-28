@@ -1,184 +1,443 @@
 /*
-===========================================
+===========================================================
+ CONTROL DE ROBOT POR BLUETOOTH - ESP32
+===========================================================
 
-CONSIDERACIONES:
-Para realizar el movimiento del robot (Adelante, atrás, izquierda y derecha)
-se envian caracteres mediante una APK diseñada para el control de motores
-y son los siguientes:
+COMANDOS RECIBIDOS POR BLUETOOTH:
 
-ADELANTE = U (UP)
-ATRAS = D (DOWN)
-IZQUIERDA = L (LEFT)
-DERECHA = R (RIGHT)
-DETENER MOTORES = S (STOP)
+Movimiento:
+    U = Adelante (UP)
+    D = Atrás (DOWN)
+    L = Izquierda (LEFT)
+    R = Derecha (RIGHT)
+    S = Detener motores (STOP)
 
-GIRO 1 = H (MOVIMIENTO CIRCULAR - IZQUIERDA)
-GIRO 2 = G (MOVIMIENTO CIRCULAR - DERECHA)
-Ello está detallado en el void loop() > SerialBT.available() > 0
+Giros:
+    H = Giro circular hacia la izquierda
+    G = Giro circular hacia la derecha
 
-Además de ello se agregaron caracteres para el control de PWM de los motores
-y son los siguientes:
+CONTROL DE VELOCIDAD PWM:
+    P = 120
+    A = 180
+    B = 200
+    Y = 230
+    O = 254
 
-P=120 / A=180 / B=200 / Y=230 / O=254
-Al encender el robot el valor por defecto asignado al PWM será de 120
-Ello está detallado en el void updatePWM()
+Al encender el robot:
+    PWM inicial = 120
 
-===========================================
+El ESP32 recibe los caracteres mediante Bluetooth
+y ejecuta una acción dependiendo del carácter recibido.
+===========================================================
 */
+
+
+// =========================================================
+// 1. LIBRERÍA BLUETOOTH
+// =========================================================
 
 #include "BluetoothSerial.h"
 
+// Se crea el objeto para comunicación Bluetooth
 BluetoothSerial SerialBT;
 
+
+// =========================================================
+// 2. VARIABLES DE BLUETOOTH Y PWM
+// =========================================================
+
+// Guarda el último carácter recibido por Bluetooth
 char dato = 0;
-char pwm = 'P'; // Valor por defecto
-int pwmValue = 120; // Valor de PWM por defecto 120
 
-int in1 = 13; // MOTOR A
-int in2 = 12; // MOTOR A
-int pwmA = 26; // PWM MOTOR A
+// Comando de PWM utilizado actualmente
+char pwm = 'P';
 
-int in3 = 27; // MOTOR B
-int in4 = 14;  // MOTOR B
-int pwmB = 25; // PWM MOTOR B
+// Valor de PWM inicial
+int pwmValue = 120;
+
+
+// =========================================================
+// 3. PINES DE LOS MOTORES
+// =========================================================
+
+// MOTOR A
+int in1 = 13;
+int in2 = 12;
+int pwmA = 26;
+
+// MOTOR B
+int in3 = 27;
+int in4 = 14;
+int pwmB = 25;
+
+
+// =========================================================
+// 4. OTROS PINES
+// =========================================================
 
 int led = 2;
 int stop = 33;
 
+
+// =========================================================
+// 5. CONFIGURACIÓN INICIAL
+// =========================================================
+
 void setup() {
+
+  // Comunicación con el monitor serial
   Serial.begin(115200);
-  SerialBT.begin("RSC_Test"); // Nombre del Bluetooth Ekeko
+
+  // Iniciar Bluetooth
+  // El ESP32 aparecerá como "RSC_Test"
+  SerialBT.begin("RSC_Test");
+
   Serial.println("El dispositivo está listo para conectarse");
+
+
+  // -------------------------------------------------------
+  // Configuración de pines de los motores
+  // -------------------------------------------------------
 
   pinMode(in1, OUTPUT);
   pinMode(in2, OUTPUT);
+
   pinMode(in3, OUTPUT);
   pinMode(in4, OUTPUT);
+
   pinMode(pwmA, OUTPUT);
   pinMode(pwmB, OUTPUT);
 
+
+  // -------------------------------------------------------
+  // Configuración de LED y pin STOP
+  // -------------------------------------------------------
+
   pinMode(led, OUTPUT);
   pinMode(stop, OUTPUT);
-  digitalWrite(led, HIGH);  // Indica estado ON
-  digitalWrite(stop, HIGH);  // Indica estado ON
 
-  ledcSetup(0, 5000, 8); // canal / frecuencia / resolución
-  ledcAttachPin(pwmA, 0); // pwm conectado al canal 0
+  // Indica que el sistema está encendido
+  digitalWrite(led, HIGH);
+  digitalWrite(stop, HIGH);
+
+
+  // -------------------------------------------------------
+  // Configuración del PWM
+  // -------------------------------------------------------
+
+  // Canal 0:
+  // Frecuencia = 5000 Hz
+  // Resolución = 8 bits (0 - 255)
+  ledcSetup(0, 5000, 8);
+
+  // Conectar PWM del motor A al canal 0
+  ledcAttachPin(pwmA, 0);
+
+
+  // Canal 1 para el motor B
   ledcSetup(1, 5000, 8);
-  ledcAttachPin(pwmB, 1);
-  delay(10);
 
+  // Conectar PWM del motor B al canal 1
+  ledcAttachPin(pwmB, 1);
+
+
+  delay(10);
 }
 
+
+// =========================================================
+// 6. PROGRAMA PRINCIPAL
+// =========================================================
+
 void loop() {
-  if (SerialBT.available() > 0) { 
+
+  // Verifica si llegó algún dato por Bluetooth
+  if (SerialBT.available() > 0) {
+
+    // Leer el carácter recibido
     dato = SerialBT.read();
+
+    // Mostrar en el monitor serial qué carácter llegó
     Serial.print("Dato recibido: ");
     Serial.println(dato);
 
-    if (dato == 'U' || dato == 'D' || dato == 'R' || dato == 'L' || dato == 'G' || dato == 'H') {
-      // Actualizar PWM basado en el último valor recibido
+
+    // -----------------------------------------------------
+    // COMANDOS DE MOVIMIENTO
+    // -----------------------------------------------------
+
+    if (
+      dato == 'U' ||
+      dato == 'D' ||
+      dato == 'R' ||
+      dato == 'L' ||
+      dato == 'G' ||
+      dato == 'H'
+    ) {
+
+      // Ejecutar el movimiento
       start_Movement(dato);
-    } else if (dato == 'P' || dato == 'A' || dato == 'B' || dato == 'Y' || dato == 'O') {
-      pwm = dato; // Guardar el nuevo valor PWM
-      updatePWM(); // Actualizar el valor de pwmValue
-    } else if (dato == 'S') {
+    }
+
+
+    // -----------------------------------------------------
+    // COMANDOS PARA CAMBIAR EL PWM
+    // -----------------------------------------------------
+
+    else if (
+      dato == 'P' ||
+      dato == 'A' ||
+      dato == 'B' ||
+      dato == 'Y' ||
+      dato == 'O'
+    ) {
+
+      // Guardar el nuevo comando PWM
+      pwm = dato;
+
+      // Convertir el comando en un valor numérico
+      updatePWM();
+    }
+
+
+    // -----------------------------------------------------
+    // COMANDO PARA DETENER LOS MOTORES
+    // -----------------------------------------------------
+
+    else if (dato == 'S') {
+
       stopMotors();
     }
   }
-  delay(10); // Retardo pequeño para evitar sobrecarga de procesamiento
+
+
+  // Pequeño retardo
+  delay(10);
 }
 
+
+// =========================================================
+// 7. ACTUALIZAR VELOCIDAD PWM
+// =========================================================
+
 void updatePWM() {
-  // Asignar valor de PWM basado en el comando recibido
+
+  // Dependiendo de la letra recibida,
+  // se asigna un valor de PWM.
+
   switch (pwm) {
+
+    // PWM = 120
     case 'P':
       pwmValue = 120;
       break;
+
+
+    // PWM = 180
     case 'A':
       pwmValue = 180;
       break;
+
+
+    // PWM = 200
     case 'B':
       pwmValue = 200;
       break;
+
+
+    // PWM = 230
     case 'Y':
       pwmValue = 230;
       break;
+
+
+    // PWM = 254
     case 'O':
       pwmValue = 254;
       break;
+
+
+    // Si llega un comando no válido,
+    // vuelve al PWM de 120
     default:
-      pwmValue = 120; // Valor por defecto si no coincide con ningún comando esperado 120
+      pwmValue = 120;
       break;
   }
+
+
+  // Mostrar el PWM actual en el monitor serial
   Serial.print("Valor de pwmValue actualizado: ");
   Serial.println(pwmValue);
 }
 
+
+// =========================================================
+// 8. CONTROL DE MOVIMIENTO
+// =========================================================
+
 void start_Movement(char direction) {
-  // Configura los motores basados en la dirección y el valor de PWM
+
+  // Determina el movimiento según el carácter recibido.
+
   switch (direction) {
-    case 'U': // Arriba
+
+
+    // -----------------------------------------------------
+    // ADELANTE
+    // Comando: U
+    // -----------------------------------------------------
+
+    case 'U':
+
+      // Motor A
       digitalWrite(in1, LOW);
       digitalWrite(in2, HIGH);
       ledcWrite(0, pwmValue);
+
+      // Motor B
       digitalWrite(in3, HIGH);
       digitalWrite(in4, LOW);
       ledcWrite(1, pwmValue);
+
       break;
-    case 'D': // Abajo
+
+
+    // -----------------------------------------------------
+    // ATRÁS
+    // Comando: D
+    // -----------------------------------------------------
+
+    case 'D':
+
+      // Motor A
       digitalWrite(in1, HIGH);
       digitalWrite(in2, LOW);
       ledcWrite(0, pwmValue);
+
+      // Motor B
       digitalWrite(in3, LOW);
       digitalWrite(in4, HIGH);
       ledcWrite(1, pwmValue);
+
       break;
-    case 'L': // Izquierda
+
+
+    // -----------------------------------------------------
+    // IZQUIERDA
+    // Comando: L
+    // -----------------------------------------------------
+
+    case 'L':
+
+      // Motor A
       digitalWrite(in1, HIGH);
       digitalWrite(in2, LOW);
-      ledcWrite(0, 140); 
+
+      // Velocidad específica para girar
+      ledcWrite(0, 140);
+
+
+      // Motor B
       digitalWrite(in3, HIGH);
       digitalWrite(in4, LOW);
-      ledcWrite(1, 200); //1, pwmValue
+
+      ledcWrite(1, 200);
+
       break;
-    case 'R': // Derecha
+
+
+    // -----------------------------------------------------
+    // DERECHA
+    // Comando: R
+    // -----------------------------------------------------
+
+    case 'R':
+
+      // Motor A
       digitalWrite(in1, LOW);
       digitalWrite(in2, HIGH);
-      ledcWrite(0, 200); //0, pwmValue
+
+      ledcWrite(0, 200);
+
+
+      // Motor B
       digitalWrite(in3, LOW);
       digitalWrite(in4, HIGH);
-      ledcWrite(1, 140); 
+
+      ledcWrite(1, 140);
+
       break;
-    case 'H': // Giro 1
+
+
+    // -----------------------------------------------------
+    // GIRO 1
+    // Comando: H
+    // -----------------------------------------------------
+
+    case 'H':
+
+      // Motor A
       digitalWrite(in1, HIGH);
       digitalWrite(in2, LOW);
       ledcWrite(0, pwmValue);
+
+
+      // Motor B
       digitalWrite(in3, HIGH);
       digitalWrite(in4, LOW);
       ledcWrite(1, pwmValue);
+
       break;
-    case 'G': // Giro 2
+
+
+    // -----------------------------------------------------
+    // GIRO 2
+    // Comando: G
+    // -----------------------------------------------------
+
+    case 'G':
+
+      // Motor A
       digitalWrite(in1, LOW);
       digitalWrite(in2, HIGH);
       ledcWrite(0, pwmValue);
+
+
+      // Motor B
       digitalWrite(in3, LOW);
       digitalWrite(in4, HIGH);
       ledcWrite(1, pwmValue);
+
       break;
   }
+
+
+  // Mostrar movimiento y PWM utilizado
   Serial.print("Movimiento ");
   Serial.print(direction);
   Serial.print(" con PWM: ");
   Serial.println(pwmValue);
 }
 
+
+// =========================================================
+// 9. DETENER LOS MOTORES
+// =========================================================
+
 void stopMotors() {
+
+  // Detener Motor A
   digitalWrite(in1, LOW);
   digitalWrite(in2, LOW);
   ledcWrite(0, 0);
+
+
+  // Detener Motor B
   digitalWrite(in3, LOW);
   digitalWrite(in4, LOW);
   ledcWrite(1, 0);
-  
+
+
+  // Mostrar mensaje en el monitor serial
   Serial.println("Motores detenidos.");
+}
