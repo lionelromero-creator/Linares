@@ -1,80 +1,67 @@
 /*
 ===========================================================
- CONTROL DEL ROBOT CON MANDO TIPO PLAYSTATION 4
+ CONTROL DEL ROBOT CON MANDO TIPO PLAYSTATION 4 (DIRECTO)
 ===========================================================
 
 Modos
 triangulo: cambia de modos
 
-modo 1:
+modo 1: linares 2026
+
     JOYSTICK
 
-    L3 (Joystick izquierdo) = Control de movimiento/velocidad mediante el joystick
+    L3 (Joystick izquierdo) = Control de movimiento/velocidad mediante el joystick derecha izquierda
 
     CONTROL DE VELOCIDAD:
-        L2             = A = PWM -150
-        R2             = Y = PWM 150
+        L2          = A = PWM -150
+        R2          = Y = PWM 150
         ○ CÍRCULO   = O = PWM 254
 
+modo 2: espinoza
 
-
-
-modo 2:
-
-
-
-
-
-
-
-
-El ESP32 recibe estos caracteres mediante Bluetooth
-desde la aplicación de control.
+El ESP32 recibe los datos directamente del Mando de PS4 por Bluetooth.
 ===========================================================
 */
 
-#include "BluetoothSerial.h"
-
-// Se crea el objeto para comunicación Bluetooth
-BluetoothSerial SerialBT;
-
+#include <PS4Controller.h>
 
 // =========================================================
 // 2. VARIABLES DE BLUETOOTH Y PWM
 // =========================================================
 
-// Guarda el último carácter recibido por Bluetooth
-char dato = 0;
+  // Comando de PWM utilizado actualmente
+  char pwm = 'P';
 
-// Comando de PWM utilizado actualmente
-char pwm = 'P';
-
-// Valor de PWM inicial
-int pwmValue = 120;
+  // Valor de PWM inicial
+  int pwmValue = 120;
 
 
-// =========================================================
-// 3. PINES DE LOS MOTORES
-// =========================================================
+  // =========================================================
+  // 3. PINES DE LOS MOTORES
+  // =========================================================
 
-// MOTOR A
-int in1 = 13;
-int in2 = 12;
-int pwmA = 26;
+  // MOTOR A
+  int in1 = 13;
+  int in2 = 12;
+  int pwmA = 26;
 
-// MOTOR B
-int in3 = 27;
-int in4 = 14;
-int pwmB = 25;
+  // MOTOR B
+  int in3 = 27;
+  int in4 = 14;
+  int pwmB = 25;
 
 
-// =========================================================
-// 4. OTROS PINES
-// =========================================================
+  // =========================================================
+  // 4. OTROS PINES
+  // =========================================================
 
-int led = 2;
-int stop = 33;
+  int led = 2;
+  int stop = 33;
 
+// Prototipos de funciones
+void start_Movement(char direction, int pwmValue);
+void stopMotors();
+int detectorPWM(char direction, int pwmValue);
 
 // =========================================================
 // 5. CONFIGURACIÓN INICIAL
@@ -85,11 +72,11 @@ void setup() {
   // Comunicación con el monitor serial
   Serial.begin(115200);
 
-  // Iniciar Bluetooth
-  // El ESP32 aparecerá como "RSC_Test"
-  SerialBT.begin("RSC_Test");
+  // Iniciar la librería del mando de PS4
+  // Nota: Debes vincular tu mando con la dirección MAC del ESP32 previamente
+  PS4.begin();
 
-  Serial.println("El dispositivo está listo para conectarse");
+  Serial.println("El ESP32 está listo para emparejarse con el mando de PS4");
 
 
   // -------------------------------------------------------
@@ -119,22 +106,15 @@ void setup() {
 
 
   // -------------------------------------------------------
-  // Configuración del PWM
+  // Configuración del PWM (Sintaxis ESP32 Core v2.x / v3.x)
   // -------------------------------------------------------
 
-  // Canal 0:
-  // Frecuencia = 5000 Hz
-  // Resolución = 8 bits (0 - 255)
+  // Canal 0: Frecuencia = 5000 Hz, Resolución = 8 bits (0 - 255)
   ledcSetup(0, 5000, 8);
-
-  // Conectar PWM del motor A al canal 0
   ledcAttachPin(pwmA, 0);
-
 
   // Canal 1 para el motor B
   ledcSetup(1, 5000, 8);
-
-  // Conectar PWM del motor B al canal 1
   ledcAttachPin(pwmB, 1);
 
 
@@ -148,131 +128,59 @@ void setup() {
 
 void loop() {
 
-  // Verifica si llegó algún dato por Bluetooth
-  if (SerialBT.available() > 0) {
+  // Verifica si el mando de PS4 está conectado físicamente por Bluetooth
+  if (PS4.isConnected()) {
 
-    // Leer el carácter recibido
-    dato = SerialBT.read();
+      // =====================================================
+      // ZONA PARA TU LÓGICA CON EL MANDO DE PS4
+      // =====================================================
+      // Aquí es donde debes programar qué hace el robot 
+      // leyendo directamente el control, por ejemplo:
+      // 
+      // if (PS{ stopMotors(); }
+      //
+      // ¡Aquí te dejo la base para que crees tu lógica!
+      // =====================================================4.Up()) { start_Movement('U'); }
+      // else if (PS4.Down()) { start_Movement('D'); }
+      // else 
+      
 
-    // Mostrar en el monitor serial qué carácter llegó
-    Serial.print("Dato recibido: ");
-    Serial.println(dato);
 
+  if (PS4.LStickX() > 15 || PS4.LStickX() < -15) {
+    int lStickX = PS4.LStickX();
+    int normalizedStick = constrain(abs(lStickX), 0, 255);
 
-    // -----------------------------------------------------
-    // COMANDOS DE MOVIMIENTO
-    // -----------------------------------------------------
-
-    if (
-      dato == 'U' ||
-      dato == 'D' ||
-      dato == 'R' ||
-      dato == 'L' ||
-      dato == 'G' ||
-      dato == 'H'
-    ) {
-
-      // Ejecutar el movimiento
-      start_Movement(dato);
+    if (lStickX > 15) {
+      start_Movement('R', normalizedStick);
+    } else {
+      start_Movement('L', normalizedStick);
     }
-
-
-    // -----------------------------------------------------
-    // COMANDOS PARA CAMBIAR EL PWM
-    // -----------------------------------------------------
-
-    else if (
-      dato == 'P' ||
-      dato == 'A' ||
-      dato == 'B' ||
-      dato == 'Y' ||
-      dato == 'O'
-    ) {
-
-      // Guardar el nuevo comando PWM
-      pwm = dato;
-
-      // Convertir el comando en un valor numérico
-      updatePWM();
-    }
-
-
-    // -----------------------------------------------------
-    // COMANDO PARA DETENER LOS MOTORES
-    // -----------------------------------------------------
-
-    else if (dato == 'S') {
-
-      stopMotors();
-    }
+  } else if (PS4.L2Value() > 15) {
+    int l2Value = constrain(PS4.L2Value(), 0, 255);
+    start_Movement('D', l2Value);
+  } else if (PS4.R2Value() > 15) {
+    int r2Value = constrain(PS4.R2Value(), 0, 255);
+    start_Movement('U', r2Value);
+  } else {
+    stopMotors();
+  }
+  } else {
+    // Si el mando se desconecta, paramos los motores por seguridad
+    stopMotors();
   }
 
-
-  // Pequeño retardo
+  // Pequeño retardo para estabilidad
   delay(10);
 }
 
 
 // =========================================================
-// 7. ACTUALIZAR VELOCIDAD PWM
+//  ACTUALIZAR VELOCIDAD PWM
+
+//  CONTROL DE MOVIMIENTO
 // =========================================================
 
-void updatePWM() {
-
-  // Dependiendo de la letra recibida,
-  // se asigna un valor de PWM.
-
-  switch (pwm) {
-
-    // PWM = 120
-    case 'P':
-      pwmValue = 120;
-      break;
-
-
-    // PWM = 180
-    case 'A':
-      pwmValue = 180;
-      break;
-
-
-    // PWM = 200
-    case 'B':
-      pwmValue = 200;
-      break;
-
-
-    // PWM = 230
-    case 'Y':
-      pwmValue = 230;
-      break;
-
-
-    // PWM = 254
-    case 'O':
-      pwmValue = 254;
-      break;
-
-
-    // Si llega un comando no válido,
-    // vuelve al PWM de 120
-    default:
-      pwmValue = 120;
-      break;
-  }
-
-
-  // Mostrar el PWM actual en el monitor serial
-  Serial.print("Valor de pwmValue actualizado: ");
-  Serial.println(pwmValue);
-}
-
-
-// =========================================================
-// 8. CONTROL DE MOVIMIENTO
-// =========================================================
-
-void start_Movement(char direction) {
+void start_Movement(char direction, int pwmValue) {
 
   // Determina el movimiento según el carácter recibido.
 
@@ -312,8 +220,9 @@ void start_Movement(char direction) {
       ledcWrite(0, pwmValue);
 
       // Motor B
-      digitalWrite(in3, LOW);
+
       digitalWrite(in4, HIGH);
+      digitalWrite(in3, LOW);
       ledcWrite(1, pwmValue);
 
       break;
@@ -353,14 +262,11 @@ void start_Movement(char direction) {
       // Motor A
       digitalWrite(in1, LOW);
       digitalWrite(in2, HIGH);
-
-      ledcWrite(0, 200);
-
+      ledcWrite(0, pwmValue);
 
       // Motor B
-      digitalWrite(in3, LOW);
       digitalWrite(in4, HIGH);
-
+      digitalWrite(in3, LOW);
       ledcWrite(1, 140);
 
       break;
@@ -416,7 +322,11 @@ void start_Movement(char direction) {
   Serial.println(pwmValue);
 }
 
-
+int detectorPWM(char direction, int pwmValue) {
+  // Ajusta el valor de PWM para que quede siempre dentro del rango válido.
+  (void)direction;
+  return constrain(pwmValue, 0, 255);
+}
 // =========================================================
 // 9. DETENER LOS MOTORES
 // =========================================================
